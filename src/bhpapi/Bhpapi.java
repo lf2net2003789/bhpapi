@@ -56,15 +56,15 @@ public class Bhpapi {
     private static String medRecordJSONOUT = "c:/temp/medRecord_jsonOut.txt";
 
     // 原 BHP API 的基底網址。
-    private static String apiUrl = "https://apcvpn.hpa.gov.tw/bhpApi/api";
+    private static String BhpApi_URL = "https://apcvpn.hpa.gov.tw/bhpApi/api";
 
     // MedicalRecord 測試與正式基底網址；由 MedicalRecord_Test_Mode 決定使用哪一個。
-    private static String MedicalRecord_HPA_Test = "https://60.251.1.235/MedicalRecord_HPA/api/CHMSSForHis";
-    private static String MedicalRecord_HPA = "https://203.65.42.199/MedicalRecord_HPA/api/CHMSSForHis";
+    private static String MedicalRecord_HPA_Test_URL = "https://60.251.1.235/MedicalRecord_HPA/api/CHMSSForHis";
+    private static String MedicalRecord_HPA_URL = "https://203.65.42.199/MedicalRecord_HPA/api/CHMSSForHis";
 
     // MedicalRecord 帳號密碼，會由 bhpa_config.ini 載入。
     private static String MedicalRecord_Account = "0422351240";
-    private static String MedicalRecord_Password = "md20zKLoLWQP1jLA";
+    private static String MedicalRecord_Password = "=47uJy16I6Q8IKMT";
     private static String MedicalRecord_Password_Update_Date = "";
     private static int MedicalRecord_Password_Remaining_Days = 0;
 
@@ -204,24 +204,29 @@ public class Bhpapi {
     // 取得 token 後寫入 MedicalRecord 輸入 JSON，再送出上傳 API。
     private static void uploadMedicalRecord(ApiMethod method) throws IOException, ParseException {
         JSONObject loginObj = getMedicalRecordToken();
-        if(isSuccess(loginObj)){
-            String tokenId = getJsonString(loginObj, "tokenid");
-            JSONObject fileJson = readJsonFile(medRecordJSONIN);
-            fileJson.put("tokenid", tokenId);
-            JSONObject medRecordObj = bhpaPost(method.getUrl(), fileJson);
-            saveJSON(medRecordObj, medRecordJSONOUT);
-            System.out.println(medRecordObj);
+        if(!isSuccess(loginObj)){
+            JSONObject tokenErrorObj = createMedicalRecordTokenError(loginObj);
+            saveJSON(tokenErrorObj, medRecordJSONOUT);
+            System.out.println(tokenErrorObj);
+            return;
         }
+
+        String tokenId = getJsonString(loginObj, "tokenid");
+        JSONObject fileJson = readJsonFile(medRecordJSONIN);
+        fileJson.put("tokenid", tokenId);
+        JSONObject medRecordObj = bhpaPost(method.getUrl(), fileJson);
+        saveJSON(medRecordObj, medRecordJSONOUT);
+        System.out.println(medRecordObj);
     }
 
     // 依 API 類型取得目前應使用的基底網址。
     private static String getBaseUrl(ApiBase base) {
         switch(base){
             case MEDICAL_RECORD:
-                return MedicalRecord_Test_Mode ? MedicalRecord_HPA_Test : MedicalRecord_HPA;
+                return MedicalRecord_Test_Mode ? MedicalRecord_HPA_Test_URL : MedicalRecord_HPA_URL;
             case BHP_API:
             default:
-                return apiUrl;
+                return BhpApi_URL;
         }
     }
 
@@ -242,9 +247,9 @@ public class Bhpapi {
         vaildJSONOUT = props.getProperty("validJSONOUT", vaildJSONOUT);
         medRecordJSONIN = props.getProperty("medRecordJSONIN", medRecordJSONIN);
         medRecordJSONOUT = props.getProperty("medRecordJSONOUT", medRecordJSONOUT);
-        apiUrl = props.getProperty("apiUrl", apiUrl);
-        MedicalRecord_HPA_Test = props.getProperty("MedicalRecord_HPA_Test", MedicalRecord_HPA_Test);
-        MedicalRecord_HPA = props.getProperty("MedicalRecord_HPA", MedicalRecord_HPA);
+        BhpApi_URL = props.getProperty("BhpApi_URL", BhpApi_URL);
+        MedicalRecord_HPA_Test_URL = props.getProperty("MedicalRecord_HPA_Test_URL", MedicalRecord_HPA_Test_URL);
+        MedicalRecord_HPA_URL = props.getProperty("MedicalRecord_HPA_URL", MedicalRecord_HPA_URL);
         MedicalRecord_Test_Mode = Boolean.parseBoolean(props.getProperty("MedicalRecord_Test_Mode", String.valueOf(MedicalRecord_Test_Mode)));
         MedicalRecord_Account = props.getProperty("MedicalRecord_Account", MedicalRecord_Account);
         MedicalRecord_Password = props.getProperty("MedicalRecord_Password", MedicalRecord_Password);
@@ -272,14 +277,13 @@ public class Bhpapi {
         props.setProperty("validJSONOUT", vaildJSONOUT);
         props.setProperty("medRecordJSONIN", medRecordJSONIN);
         props.setProperty("medRecordJSONOUT", medRecordJSONOUT);
-        props.setProperty("apiUrl", apiUrl);
-        props.setProperty("MedicalRecord_HPA_Test", MedicalRecord_HPA_Test);
-        props.setProperty("MedicalRecord_HPA", MedicalRecord_HPA);
+        props.setProperty("BhpApi_URL", BhpApi_URL);
+        props.setProperty("MedicalRecord_HPA_Test_URL", MedicalRecord_HPA_Test_URL);
+        props.setProperty("MedicalRecord_HPA_URL", MedicalRecord_HPA_URL);
         props.setProperty("MedicalRecord_Test_Mode", String.valueOf(MedicalRecord_Test_Mode));
         props.setProperty("MedicalRecord_Account", MedicalRecord_Account);
         props.setProperty("MedicalRecord_Password", MedicalRecord_Password);
         props.setProperty("MedicalRecord_Password_Update_Date", MedicalRecord_Password_Update_Date);
-        props.setProperty("MedicalRecord_Password_Remaining_Days", String.valueOf(MedicalRecord_Password_Remaining_Days));
     }
 
     // 依固定順序寫出設定檔，方便人工閱讀與維護。
@@ -307,15 +311,15 @@ public class Bhpapi {
         appendConfigLine(config, props, "medRecordJSONIN");
         appendConfigLine(config, props, "medRecordJSONOUT");
         config.append("\r\n");
-        appendConfigLine(config, props, "apiUrl");
-        appendConfigLine(config, props, "MedicalRecord_HPA_Test");
-        appendConfigLine(config, props, "MedicalRecord_HPA");
-        appendConfigLine(config, props, "MedicalRecord_Test_Mode");
+        appendConfigLine(config, props, "BhpApi_URL");
+        appendConfigLine(config, props, "MedicalRecord_HPA_Test_URL");
+        appendConfigLine(config, props, "MedicalRecord_HPA_URL");   
         config.append("\r\n");
         appendConfigLine(config, props, "MedicalRecord_Account");
         appendConfigLine(config, props, "MedicalRecord_Password");
         appendConfigLine(config, props, "MedicalRecord_Password_Update_Date");
-        appendConfigLine(config, props, "MedicalRecord_Password_Remaining_Days");
+        config.append("\r\n");
+        appendConfigLine(config, props, "MedicalRecord_Test_Mode");
         return config.toString();
     }
 
@@ -326,7 +330,7 @@ public class Bhpapi {
 
     // 依目前 API 網址產生預設 SSL 主機白名單。
     private static String getDefaultTrustedSslHosts() {
-        return getHost(apiUrl) + "," + getHost(MedicalRecord_HPA_Test) + "," + getHost(MedicalRecord_HPA);
+        return getHost(BhpApi_URL) + "," + getHost(MedicalRecord_HPA_Test_URL) + "," + getHost(MedicalRecord_HPA_URL);
     }
 
     // 建立 HTTP client：允許不安全憑證，但主機名稱必須在白名單內。
@@ -420,6 +424,14 @@ public class Bhpapi {
         return jobj;
     }
 
+    // 建立 MedicalRecord 取得 token 失敗時的輸出 JSON，保留原始登入回應供追查。
+    private static JSONObject createMedicalRecordTokenError(JSONObject loginObj) {
+        JSONObject errorObj = errorJSON("MedicalRecordTokenError", "GetTokenID failed; upload request was not sent", getJsonInt(loginObj, "StatusCode"));
+        errorObj.put("Stage", "gettokenid");
+        errorObj.put("LoginResponse", loginObj == null ? new JSONObject() : loginObj);
+        return errorObj;
+    }
+
     // MedicalRecord 成功回應會帶 msG_CODE = Y。
     private static boolean isSuccess(JSONObject jobj) {
         return "Y".equals(getJsonString(jobj, "msG_CODE"));
@@ -432,6 +444,20 @@ public class Bhpapi {
         }
         Object value = jobj.get(key);
         return value == null ? "" : value.toString();
+    }
+
+    // 安全取得 JSON 欄位整數，欄位不存在或格式不正確時回傳 0。
+    private static int getJsonInt(JSONObject jobj, String key) {
+        String value = getJsonString(jobj, key);
+        if(value.equals("")){
+            return 0;
+        }
+
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
     }
 
     // 依密碼更新日期計算剩餘有效天數；密碼有效期限為 90 天。
